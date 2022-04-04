@@ -1,0 +1,16 @@
+name: sweep_local_test
+program: /Users/ryanqnelson/GitHub/ryanquinnnelson/CMU-02699-Image-Segmentation-via-GANs/run_octopus.py
+method: grid
+project: CMU-02699-PROJECT
+entity: ryanquinnnelson
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  filename:
+    values: ["/Users/ryanqnelson/GitHub/ryanquinnnelson/CMU-02699-Image-Segmentation-via-GANs/configs/local/config_local_gan_r001.txt"]
+  lr:
+    values: [0.001, 0.01]
+  optimizer_type:
+    values: ["adam", "sgd"]
+

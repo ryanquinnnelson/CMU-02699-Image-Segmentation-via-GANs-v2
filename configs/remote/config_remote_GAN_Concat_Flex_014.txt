@@ -1,0 +1,98 @@
+[DEFAULT]
+run_name = GAN_Concat_Flex_014_0
+
+
+[debug]
+debug_path = /home/ubuntu
+
+
+[wandb]
+wandb_dir = /home/ubuntu/wandb
+entity = ryanquinnnelson
+project = CMU-02699-PROJECT
+notes = Image Segmentation using GANs
+tags = octopus,GAN,DAN
+mode = online
+config_sections_to_track=dataloader,model,hyperparameters
+
+
+[output]
+output_dir = /home/ubuntu/output
+
+
+[checkpoint]
+checkpoint_dir = /data/checkpoints
+checkpoint_cadence = 20
+delete_existing_checkpoints = False
+load_from_checkpoint=False
+checkpoint_file = None
+
+
+[data]
+data_dir = /home/ubuntu/data/warwick
+train_dir = /home/ubuntu/data/warwick/training
+train_target_dir = /home/ubuntu/data/warwick/training_anno
+val_dir = /home/ubuntu/data/warwick/a
+val_target_dir = /home/ubuntu/data/warwick/a_anno
+test_dir = /home/ubuntu/data/warwick/b
+test_target_dir = /home/ubuntu/data/warwick/b_anno
+transforms_list = Resize,ToTensor
+resize_height = 224
+
+
+##########################################################################################
+#                             Sweep parameters below this line                           #
+##########################################################################################
+
+
+[dataloader]
+num_workers=0
+pin_memory=False
+batch_size=8
+
+
+# TODO: avoid specifying original_width and original_height; calculate from resize_height
+[model]	
+sn_model_type=ConcatenationFCN
+sn_input_block_depth=1
+sn_num_fcn_blocks=5
+sn_fcn_block_depth=1
+sn_input_channels=3
+sn_output_channels=2
+sn_first_layer_out_channels=64
+sn_block_pattern=double_run
+sn_upsampling_pattern=last_three
+original_height=224
+original_width=332
+
+en_model_type=FlexVGG
+en_input_block_depth=1
+en_num_fcn_blocks=4
+en_depth_fcn_block=2
+en_input_channels=4
+en_first_layer_out_channels=64
+en_fcn_block_pattern=double_run
+en_depth_linear_block=1
+en_linear_block_pattern=single_run
+en_first_linear_layer_out_features=128
+en_out_features=1
+
+
+[hyperparameters]
+num_epochs = 300
+sn_criterion=CrossEntropyLoss
+en_criterion=BCELoss
+optimizer_type=adam
+sn_lr=0.001
+en_lr=0.0001
+scheduler_type=ReduceLROnPlateau
+scheduler_factor=0.8
+scheduler_patience=10
+scheduler_mode=min
+scheduler_verbose=True
+scheduler_plateau_metric=val_loss
+scheduler_min_lr=0.00001
+use_gan = True
+sigma=0.1
+sigma_weight=300
+gan_start_epoch=1
