@@ -55,7 +55,6 @@ def _is_background_pixel(p, segment_positions):
 
 
 def _get_positions_at_radius(anchor_position, r):
-
     if r <= 0:
         return []
 
@@ -166,4 +165,28 @@ def get_triplet_positions(target, n_triplets):
         negative_positions.append(negative_position)
         positive_positions.append(positive_position)
 
-    return np.array(anchor_positions), np.array(negative_positions), np.array(positive_positions)
+    return anchor_positions, negative_positions, positive_positions
+
+
+def get_triplet_values(output, triplet_positions):
+
+    # unpack
+    anchor_positions, negative_positions, positive_positions = triplet_positions
+
+    anchor_values = []
+    negative_values = []
+    positive_values = []
+
+    for j, k in anchor_positions:
+        output_anchor = output[:, j, k]
+        anchor_values.append(output_anchor)
+
+    for j, k in negative_positions:
+        output_negative = output[:, j, k]
+        negative_values.append(output_negative)
+
+    for j, k in positive_positions:
+        output_positive = output[:, j, k]
+        positive_values.append(output_positive)
+
+    return anchor_values, negative_values, positive_values
