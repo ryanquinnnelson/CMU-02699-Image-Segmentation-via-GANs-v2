@@ -136,7 +136,7 @@ def _get_new_positive(segment_positions, anchor_position):
     return positive_position
 
 
-def get_triplet_positions(target, n_triplets):
+def _get_triplet_positions(target, n_triplets):
     # for storing triplets
     anchor_positions = []
     positive_positions = []
@@ -168,8 +168,7 @@ def get_triplet_positions(target, n_triplets):
     return anchor_positions, negative_positions, positive_positions
 
 
-def get_triplet_values(output, triplet_positions):
-
+def _get_triplet_values(output, triplet_positions):
     # unpack
     anchor_positions, negative_positions, positive_positions = triplet_positions
 
@@ -190,3 +189,61 @@ def get_triplet_values(output, triplet_positions):
         positive_values.append(output_positive)
 
     return anchor_values, negative_values, positive_values
+
+
+# TODO: vectorize calculation to improve efficiency
+def _calculate_loss(triplet_values, margin=0.2):
+    total_loss = 0.0
+
+    # unpack
+    anchor_values, negative_values, positive_values = triplet_values
+    n_triplets = len(anchor_values)
+    print(anchor_values)
+
+    for i in range(n_triplets):
+        anchor = torch.unsqueeze(anchor_values[i], dim=0)  # cdist requires 2D tensors
+        negative = torch.unsqueeze(negative_values[i], dim=0)
+        positive = torch.unsqueeze(positive_values[i], dim=0)
+
+        a = torch.cdist(anchor, positive, p=2.0)
+        b = torch.cdist(anchor, negative, p=2.0)
+
+        option1 = a - b + margin
+        option2 = 0.0
+
+        loss = max(option1, option2)
+        total_loss += loss
+
+    return total_loss
+
+
+class TripletLoss:
+
+    def __init__(self, margin=0.2, n_triplets=1):
+        self.margin = margin
+        self.n_triplets = n_triplets
+
+    # TODO: vectorize loss calculates on all target,output pairs at the same time
+    def calculate_loss(self, outputs, targets):
+        total_loss = 0.0
+        n_samples = outputs.shape[0]
+
+        # for each sample in the batch output, calculate loss
+        for i in range(n_samples):
+            # calculate loss for one target,output pair at a time
+            target = targets[i]
+            output = outputs[i]
+
+            # choose positions for all triplets
+            triplet_positions = _get_triplet_positions(target, self.n_triplets)
+
+            # get values for all triplets
+            triplet_values = _get_triplet_values(output, triplet_positions)
+
+            # calculate loss for triplets
+            loss = _calculate_loss(triplet_values, self.margin)
+
+            # add to running total
+            total_loss += loss
+
+        return total_loss
