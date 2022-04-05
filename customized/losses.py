@@ -6,20 +6,18 @@ import torch
 
 def _get_random_segment_position(segment_positions):
     # select random index in positions array
-    n_segment_pixels = len(segment_positions[0])
+    n_segment_pixels = len(segment_positions)
     idx = np.random.randint(n_segment_pixels)
 
     # get (i,j) values for the index into the positions array
-    i = segment_positions[0][idx]
-    j = segment_positions[1][idx]
-    anchor_pos = [i, j]
+    anchor_pos = segment_positions[idx].tolist()
 
     return anchor_pos
 
 
 def _get_new_anchor(segment_positions, anchor_positions):
     # check if all possible anchor positions have already been selected
-    n_segment_pixels = len(segment_positions[0])
+    n_segment_pixels = len(segment_positions)
     if len(anchor_positions) == n_segment_pixels:
         raise ValueError('All possible anchor positions have been already selected.')
 
@@ -40,17 +38,17 @@ def _position_is_in_image(p, n_rows, n_cols):
 
 
 def _is_background_pixel(p, segment_positions):
-    is_background_pixel = True
 
-    # get all segment row positions that match pos[0]
-    matches_row_idx = np.where(segment_positions[0] == p[0])[0]  # extract array from np.where results
+    # get all segment row indices where first col matches p[0]
+    matches = segment_positions[:, 0] == p[0]
+    idx = torch.nonzero(matches)
 
-    # check all row position matches to see if matching column position exists
-    for i in matches_row_idx:
-        if segment_positions[1][i] == p[1]:
-            is_background_pixel = False
-            break  # stop searching
+    # from only the rows which match the first col, get all rows where second col matches p[1]
+    matches = segment_positions[idx, 1] == p[1]
+    idx = torch.nonzero(matches)
 
+    # if there is a row that matches p[1], this position is segment, not background
+    is_background_pixel = len(idx) == 0
     return is_background_pixel
 
 
@@ -124,7 +122,7 @@ def _get_new_negative(segment_positions, anchor_position, n_rows, n_cols):
 
 def _get_new_positive(segment_positions, anchor_position):
     # check if positive sample is available
-    n_segment_pixels = len(segment_positions[0])
+    n_segment_pixels = len(segment_positions)
     if n_segment_pixels < 2:
         raise ValueError('Target does not have enough segment pixels to choose a positive sample.')
 
@@ -147,7 +145,7 @@ def _get_triplet_positions(target, n_triplets):
     img_cols = target.shape[1]
 
     # get indices of all nonzero positions (segment pixels)
-    segment_positions = np.nonzero(target.numpy())
+    segment_positions = torch.nonzero(target)
 
     # generate sets of triplets
     for i in range(n_triplets):

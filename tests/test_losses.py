@@ -130,8 +130,8 @@ def outputs_2d():
 
 
 def test__get_random_segment_position(target1):
-    segment_positions = np.nonzero(target1.numpy())
-    available_positions = [[segment_positions[0][i], segment_positions[1][i]] for i in range(len(segment_positions[0]))]
+    segment_positions = torch.nonzero(target1)
+    available_positions = segment_positions.tolist()
 
     for i in range(1000):
         p = l._get_random_segment_position(segment_positions)
@@ -140,17 +140,17 @@ def test__get_random_segment_position(target1):
 
 
 def test__get_new_anchor__no_existing_anchors(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     anchor_positions = []
 
-    available_positions = [[segment_positions[0][i], segment_positions[1][i]] for i in range(len(segment_positions[0]))]
+    available_positions = segment_positions.tolist()
     anchor_position = l._get_new_anchor(segment_positions, anchor_positions)
     if anchor_position not in available_positions:
         assert False
 
 
 def test__get_new_anchor__existing_anchors(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     anchor_positions = [[0, 2], [0, 3], [0, 4], [1, 3], [1, 4], [2, 4], [3, 0], [3, 4], [4, 0], [4, 1]]
 
     anchor_position = l._get_new_anchor(segment_positions, anchor_positions)
@@ -159,7 +159,7 @@ def test__get_new_anchor__existing_anchors(target1):
 
 
 def test__get_new_anchor__no_available_anchors(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     anchor_positions = [[0, 2], [0, 3], [0, 4], [1, 3], [1, 4], [2, 4], [3, 0], [3, 4], [4, 0], [4, 1], [4, 4]]
 
     with pytest.raises(ValueError):
@@ -177,7 +177,7 @@ def test__position_is_in_image():
 
 
 def test__is_background_pixel(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     pos_false = [4, 0]
     assert l._is_background_pixel(pos_false, segment_positions) is False
     pos_true = [0, 0]
@@ -214,7 +214,7 @@ def test__get_positions_at_radius():
 
 
 def test__get_new_negative__no_available(target3):
-    segment_positions = np.nonzero(target3.numpy())
+    segment_positions = torch.nonzero(target3)
     n_rows = target3.shape[0]
     n_cols = target3.shape[1]
     anchor_position = [4, 0]
@@ -224,7 +224,7 @@ def test__get_new_negative__no_available(target3):
 
 
 def test__get_new_negative(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     n_rows = target1.shape[0]
     n_cols = target1.shape[1]
     anchor_position = [4, 0]
@@ -235,7 +235,7 @@ def test__get_new_negative(target1):
 
 
 def test__get_new_positive__no_available(target2):
-    segment_positions = np.nonzero(target2.numpy())
+    segment_positions = torch.nonzero(target2)
     anchor_position = [0, 0]
 
     with pytest.raises(ValueError):
@@ -243,9 +243,9 @@ def test__get_new_positive__no_available(target2):
 
 
 def test__get_new_positive(target1):
-    segment_positions = np.nonzero(target1.numpy())
+    segment_positions = torch.nonzero(target1)
     anchor_position = [4, 0]
-    available_positions = [[segment_positions[0][i], segment_positions[1][i]] for i in range(len(segment_positions[0]))]
+    available_positions = segment_positions.tolist()
 
     for i in range(1000):
         positive_position = l._get_new_positive(segment_positions, anchor_position)
@@ -254,8 +254,6 @@ def test__get_new_positive(target1):
 
 
 def test__get_triplet_positions(target1):
-    segment_positions = np.nonzero(target1.numpy())
-    available_positions = [[segment_positions[0][i], segment_positions[1][i]] for i in range(len(segment_positions[0]))]
 
     # 0
     n_triplets = 0
