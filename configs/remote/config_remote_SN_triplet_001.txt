@@ -80,7 +80,7 @@ en_out_features=1
 
 [hyperparameters]
 num_epochs = 50
-sn_criterion=TripletLoss
+sn_criterion=CrossEntropyLoss
 en_criterion=BCELoss
 optimizer_type=adam
 sn_lr=0.001
@@ -93,8 +93,9 @@ scheduler_verbose=True
 scheduler_plateau_metric=val_loss
 scheduler_min_lr=0.00001
 use_gan = False
-sigma=0.1
-sigma_weight=300
+en_loss_weight=0.1
+en_loss_increment=300
 gan_start_epoch=1
 margin=0.2
 n_triplets=1
+triplet_loss_weight=1.0

@@ -69,8 +69,6 @@ def _get_criterion(criterion_type):
         criterion = nn.CrossEntropyLoss()
     elif criterion_type == 'BCELoss':
         criterion = nn.BCELoss()
-    elif criterion_type == 'TripletLoss':
-        criterion = TripletLoss()
     return criterion
 
 
@@ -111,7 +109,7 @@ def _combine_input_and_map(input, map):
     return combined
 
 
-def _d_loss(pred, criterion, annotated=True):
+def _en_loss(pred, criterion, annotated=True):
     n = len(pred)
 
     if annotated:
@@ -144,12 +142,13 @@ class Training:
         self.sn_criterion = _get_criterion(wandb_config.sn_criterion)
         self.en_criterion = _get_criterion(wandb_config.en_criterion)
         self.use_gan = wandb_config.use_gan
-        self.sigma = wandb_config.sigma
-        self.sigma_weight = wandb_config.sigma_weight
+        self.en_loss_weight = wandb_config.en_loss_weight
+        self.en_loss_increment = wandb_config.en_loss_increment
         self.gan_start_epoch = wandb_config.gan_start_epoch
 
         self.n_triplets = wandb_config.n_triplets
         self.margin = wandb_config.margin
+        self.triplet_loss_weight = wandb_config.triplet_loss_weight
 
         logging.info(f'Criterion for training phase:' +
                      f'\ngenerator:{self.sn_criterion}\ndiscriminator:{self.en_criterion}')
@@ -169,33 +168,34 @@ class Training:
         """
         logging.info(f'Running epoch {epoch}/{num_epochs} of training...')
 
-        total_g_train_loss = 0
-        total_d_train_loss_unannotated = 0
-        total_d_train_loss_annotated = 0
-        total_d_train_loss = 0
+        # track losses
+        total_sn_train_loss = 0
+        total_sn_train_mce_loss = 0
+        total_sn_train_triplet_loss = 0
+        total_en_train_loss_unannotated = 0
+        total_en_train_loss_annotated = 0
+        total_en_train_loss = 0
 
-        g_model = models[0]
-        d_model = models[1]
-        g_optimizer = optimizers[0]
-        d_optimizer = optimizers[1]
+        # extract models and optimizers
+        sn_model = models[0]
+        en_model = models[1]
+        sn_optimizer = optimizers[0]
+        en_optimizer = optimizers[1]
 
         # Set model in 'Training mode'
-        g_model.train()
-        d_model.train()
+        sn_model.train()
+        en_model.train()
 
         # process mini-batches
         for i, (inputs, targets) in enumerate(self.dataloader):
-            # logging.info(f'training batch:{i}')
-            # logging.info(f'inputs.shape:{inputs.shape}')
-            # prep
-            g_optimizer.zero_grad()
-            torch.cuda.empty_cache()
 
-            inputs, targets = self.devicehandler.move_data_to_device(g_model, inputs, targets)
-            # logging.info(f'inputs.shape:{inputs.shape}')
+            # prep
+            sn_optimizer.zero_grad()
+            torch.cuda.empty_cache()
+            inputs, targets = self.devicehandler.move_data_to_device(sn_model, inputs, targets)
 
             # compute forward pass on generator
-            out = g_model.forward(inputs, i)
+            out = sn_model.forward(inputs, i)
 
             if i == 0:
                 logging.info(f'inputs.shape:{inputs.shape}')
@@ -203,54 +203,73 @@ class Training:
                 logging.info(f'out.shape:{out.shape}')
 
             # calculate generator loss
+            # triplet loss
             out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-            out_1d = torch.unsqueeze(out_1d, dim=1)
-            g_loss = self.sn_criterion.calculate_loss(out_1d, targets, self.margin, self.n_triplets)
+            out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
+            sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
+
+            # cross entropy loss
+            sn_mce_loss = self.sn_criterion(out, targets)
+
+            # combine losses
+            sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
 
             # check if gan process should be run
             if self.use_gan and epoch >= self.gan_start_epoch:
                 # run gan process
-                losses = self.run_gan(i, epoch, inputs, out, targets, d_model, d_optimizer, g_loss)
+                losses = self.run_gan(i, epoch, inputs, out, targets, en_model, en_optimizer, sn_loss)
 
                 # unpack losses
-                g_loss, d_loss_unannotated, d_loss_annotated, d_loss = losses
+                sn_loss, en_loss_unannotated, en_loss_annotated, en_loss = losses
 
-                # append losses to running totals
-                total_d_train_loss_unannotated += d_loss_unannotated.item()
-                total_d_train_loss_annotated += d_loss_annotated.item()
-                total_d_train_loss += d_loss.item()
+                # append discriminator losses to running totals
+                total_en_train_loss_unannotated += en_loss_unannotated.item()
+                total_en_train_loss_annotated += en_loss_annotated.item()
+                total_en_train_loss += en_loss.item()
 
             # compute backward pass of generator
-            g_loss.backward()
+            sn_loss.backward()
 
             # update generator weights
-            g_optimizer.step()
+            sn_optimizer.step()
 
             # delete mini-batch data from device
             del inputs
             del targets
 
-            # append losses to running totals
-            total_g_train_loss += g_loss.item()
+            # append generator losses to running totals
+            total_sn_train_loss += sn_loss.item()
+            total_sn_train_triplet_loss += sn_triplet_loss.item()
+            total_sn_train_mce_loss += sn_mce_loss.item()
 
         # calculate average loss across all mini-batches
         n_mini_batches = len(self.dataloader)
-        total_g_train_loss /= n_mini_batches
-        total_d_train_loss /= n_mini_batches
-        total_d_train_loss_unannotated /= n_mini_batches
-        total_d_train_loss_annotated /= n_mini_batches
+
+        # generator
+        total_sn_train_loss /= n_mini_batches
+        total_sn_train_triplet_loss /= n_mini_batches
+        total_sn_train_mce_loss /= n_mini_batches
+
+        # discriminator
+        total_en_train_loss /= n_mini_batches
+        total_en_train_loss_unannotated /= n_mini_batches
+        total_en_train_loss_annotated /= n_mini_batches
 
         # build stat dictionary
-        g_lr = g_optimizer.state_dict()["param_groups"][0]["lr"]
-        d_lr = d_optimizer.state_dict()["param_groups"][0]["lr"]
-        stats = {'g_train_loss': total_g_train_loss, 'd_train_loss': total_d_train_loss,
-                 'd_train_loss_unannotated': total_d_train_loss_unannotated,
-                 'd_train_loss_annotated': total_d_train_loss_annotated,
-                 'g_lr': g_lr, 'd_lr': d_lr}
+        sn_lr = sn_optimizer.state_dict()["param_groups"][0]["lr"]
+        en_lr = en_optimizer.state_dict()["param_groups"][0]["lr"]
+        stats = {'g_train_loss': total_sn_train_loss,
+                 'g_train_triplet_loss': total_sn_train_triplet_loss,
+                 'g_train_mce_loss': total_sn_train_mce_loss,
+                 'd_train_loss': total_en_train_loss,
+                 'd_train_loss_unannotated': total_en_train_loss_unannotated,
+                 'd_train_loss_annotated': total_en_train_loss_annotated,
+                 'g_lr': sn_lr,
+                 'd_lr': en_lr}
 
         return stats
 
-    def run_gan(self, i, epoch, inputs, out, targets, d_model, d_optimizer, g_loss):
+    def run_gan(self, i, epoch, inputs, out, targets, en_model, en_optimizer, sn_loss):
 
         # select subset of mini-batch to be unannotated vs annotated at random
         unannotated_idx = np.random.choice(len(inputs), size=int(len(inputs) / 2), replace=False)
@@ -260,48 +279,49 @@ class Training:
         # combine inputs and probability map
         unannotated_inputs = inputs[unannotated_idx]  # (B, C, H, W)
         unannotated_out = out[unannotated_idx, 0, :, :]  # keep 1 class to match inputs + targets shape, get (B, H, W)
-        d_input = _combine_input_and_map(unannotated_inputs, unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
+        en_input = _combine_input_and_map(unannotated_inputs, unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
 
         # forward pass
-        pred = d_model(d_input.detach(), i)  # detach to not affect generator?
+        pred = en_model(en_input.detach(), i)  # detach to not affect generator?
 
         # calculate loss
-        d_loss_unannotated = _d_loss(pred, self.en_criterion, annotated=False)
+        en_loss_unannotated = _en_loss(pred, self.en_criterion, annotated=False)
 
         # 2 - compute forward pass on discriminator using annotated data
         # combine inputs and probability map
         annotated_inputs = inputs[annotated_idx]  # (B, C, H, W)
         annotated_targets = targets[annotated_idx]  # (B, H, W) targets only has a single class
-        d_input = _combine_input_and_map(annotated_inputs, annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
+        en_input = _combine_input_and_map(annotated_inputs, annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
 
         # forward pass
-        pred = d_model(d_input.detach(), i)  # detach to not affect generator?
+        pred = en_model(en_input.detach(), i)  # detach to not affect generator?
 
         # calculate loss
-        d_loss_annotated = _d_loss(pred, self.en_criterion, annotated=True)
+        en_loss_annotated = _en_loss(pred, self.en_criterion, annotated=True)
 
         # 3 - update discriminator based on loss
         # calculate total discriminator loss for unannotated and annotated data
-        d_loss = d_loss_unannotated + d_loss_annotated
-        d_loss.backward()
-        d_optimizer.step()
+        en_loss = en_loss_unannotated + en_loss_annotated
+        en_loss.backward()
+        en_optimizer.step()
 
         # 4 - compute forward pass on updated discriminator using only unannotated data for calculating generator loss
         # combine inputs and probability map
         # can I use all output here or only the ones selected for unannotation?
         unannotated_out = out[:, 0, :, :]  # keep 1 class to match inputs + targets shape, get (B, H, W)
-        d_input = _combine_input_and_map(inputs, unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
+        en_input = _combine_input_and_map(inputs, unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
 
         # forward pass
-        pred = d_model(d_input, i)  # leave attached so backpropagation through discriminator affects generator
+        pred = en_model(en_input, i)  # leave attached so backpropagation through discriminator affects generator
 
         # calculate generator loss based on discriminator predictions
         # if discriminator predicts unannotated correctly, generator not doing good enough job
-        sigma = self.sigma
-        sigma += (epoch / self.sigma_weight)  # add more weight each time
-        total_g_loss = g_loss + sigma * _d_loss(pred, self.en_criterion, annotated=True)
+        en_loss_weight = self.en_loss_weight
+        en_loss_weight += (epoch / self.en_loss_increment)  # add more weight to EN each time
+        en_loss = _en_loss(pred, self.en_criterion, annotated=True)
+        total_sn_loss = sn_loss + en_loss_weight * en_loss
 
-        return total_g_loss, d_loss_unannotated, d_loss_annotated, d_loss
+        return total_sn_loss, en_loss_unannotated, en_loss_annotated, en_loss
 
 
 class Validation:
@@ -321,12 +341,13 @@ class Validation:
 
         self.devicehandler = devicehandler
         self.dataloader = dataloader
-        self.criterion = _get_criterion(wandb_config.sn_criterion)
+        self.sn_criterion = _get_criterion(wandb_config.sn_criterion)
         self.use_gan = wandb_config.use_gan
         self.n_triplets = wandb_config.n_triplets
         self.margin = wandb_config.margin
+        self.triplet_loss_weight = wandb_config.triplet_loss_weight
 
-        logging.info(f'Criterion for validation phase:\ngenerator:{self.criterion}')
+        logging.info(f'Criterion for validation phase:\ngenerator:{self.sn_criterion}')
 
     def run_epoch(self, epoch, num_epochs, models):
         """
@@ -343,19 +364,23 @@ class Validation:
         logging.info(f'Running epoch {epoch}/{num_epochs} of evaluation...')
 
         total_val_loss = 0
+        val_triplet_loss = 0
+        val_mce_loss = 0
         total_hits = 0
         total_iou_score = 0
         n_correct_predictions = 0
         out_shape = None  # save for calculating total number of pixels per image
         total_inputs = 0
 
-        g_model = models[0]
-        d_model = models[1]
+        # unpack models
+        sn_model = models[0]
+        en_model = models[1]
+
         with torch.no_grad():  # deactivate autograd engine to improve efficiency
 
             # Set model in validation mode
-            g_model.eval()
-            d_model.eval()
+            sn_model.eval()
+            en_model.eval()
 
             # process mini-batches
             for i, (inputs, targets) in enumerate(self.dataloader):
@@ -363,10 +388,10 @@ class Validation:
                 total_inputs += len(inputs)
 
                 # prep
-                inputs, targets = self.devicehandler.move_data_to_device(g_model, inputs, targets)
+                inputs, targets = self.devicehandler.move_data_to_device(sn_model, inputs, targets)
 
                 # compute forward pass on generator
-                out = g_model.forward(inputs, i)
+                out = sn_model.forward(inputs, i)
                 out_shape = out.shape
 
                 if i == 0:
@@ -374,11 +399,21 @@ class Validation:
                     logging.info(f'targets.shape:{targets.shape}')
                     logging.info(f'out.shape:{out.shape}')
 
-                # calculate generator loss
+                # triplet loss
                 out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-                out_1d = torch.unsqueeze(out_1d, dim=1)
-                loss = self.criterion.calculate_loss(out_1d, targets, self.margin, self.n_triplets)
-                total_val_loss += loss.item()
+                out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
+                sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
+
+                # cross entropy loss
+                sn_mce_loss = self.sn_criterion(out, targets)
+
+                # combine losses
+                sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
+
+                # update running totals
+                val_triplet_loss += sn_triplet_loss.item()
+                val_mce_loss += sn_mce_loss.item()
+                total_val_loss += sn_loss.item()
 
                 # calculate accuracy
                 total_hits += _calculate_num_hits(i, targets, out)
@@ -395,13 +430,13 @@ class Validation:
                     unannotated_inputs = inputs[unannotated_idx]  # (B, C, H, W)
                     unannotated_out = out[unannotated_idx, 0, :,
                                       :]  # 1 class to match inputs + targets shape, (B, H, W)
-                    d_input = _combine_input_and_map(unannotated_inputs,
+                    en_input = _combine_input_and_map(unannotated_inputs,
                                                      unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
                     # forward pass
-                    pred = d_model(d_input, i)
+                    pred = en_model(en_input, i)
 
                     # count number of predictions that accurately predict unannotated
-                    n_correct_predictions += torch.sum(pred < 0.5).item()  # d_model should predict 0 for unannotated
+                    n_correct_predictions += torch.sum(pred < 0.5).item()  # en_model should predict 0 for unannotated
 
                     if i == 0:
                         logging.info(f'fake pred:{pred.detach()}')
@@ -411,11 +446,11 @@ class Validation:
                     # combine inputs and probability map
                     annotated_inputs = inputs[annotated_idx]  # (B, C, H, W)
                     annotated_targets = targets[annotated_idx]  # (B, H, W) targets only has a single class
-                    d_input = _combine_input_and_map(annotated_inputs,
+                    en_input = _combine_input_and_map(annotated_inputs,
                                                      annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
 
                     # forward pass
-                    pred = d_model(d_input, i)
+                    pred = en_model(en_input, i)
 
                     # count number of predictions that accurately predict unannotated
                     n_correct_predictions += torch.sum(pred >= 0.5).item()  # d_model should predict 1 for annotated
@@ -433,12 +468,19 @@ class Validation:
             pixels_per_image = out_shape[2] * out_shape[3]
             possible_hits = total_inputs * pixels_per_image
             val_acc = total_hits / possible_hits
-            total_val_loss /= n_mini_batches
             total_iou_score /= n_mini_batches
             discriminator_acc = n_correct_predictions / total_inputs
 
+            total_val_loss /= n_mini_batches
+            val_triplet_loss /= n_mini_batches
+            val_mce_loss /= n_mini_batches
+
             # build stats dictionary
-            stats = {'val_loss': total_val_loss, 'val_acc': val_acc, 'val_iou_score': total_iou_score,
+            stats = {'val_loss': total_val_loss,
+                     'val_triplet_loss': val_triplet_loss,
+                     'val_mce_loss': val_mce_loss,
+                     'val_acc': val_acc,
+                     'val_iou_score': total_iou_score,
                      'discriminator_acc': discriminator_acc}
 
             return stats
@@ -478,20 +520,20 @@ class Testing:
 
         if epoch == num_epochs:  # perform this step on the last epoch only
 
-            g_model = models[0]
+            sn_model = models[0]
             count = 0
             with torch.no_grad():  # deactivate autograd engine to improve efficiency
 
                 # Set model in validation mode
-                g_model.eval()
+                sn_model.eval()
 
                 # process mini-batches
                 for i, (inputs, targets) in enumerate(self.dataloader):
                     # prep
-                    inputs, targets = self.devicehandler.move_data_to_device(g_model, inputs, targets)
+                    inputs, targets = self.devicehandler.move_data_to_device(sn_model, inputs, targets)
 
                     # compute forward pass
-                    out = g_model.forward(inputs, i)
+                    out = sn_model.forward(inputs, i)
 
                     # convert two channels into single output label
                     # convert datatype to a type that pillow can use
