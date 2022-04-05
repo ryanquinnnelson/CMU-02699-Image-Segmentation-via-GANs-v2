@@ -1,4 +1,5 @@
 import random
+import logging
 
 import numpy as np
 import torch
@@ -196,7 +197,6 @@ def _calculate_loss(triplet_values, margin=0.2):
     # unpack
     anchor_values, negative_values, positive_values = triplet_values
     n_triplets = len(anchor_values)
-    print(anchor_values)
 
     for i in range(n_triplets):
         anchor = torch.unsqueeze(anchor_values[i], dim=0)  # cdist requires 2D tensors
@@ -230,13 +230,13 @@ class TripletLoss:
 
             # choose positions for all triplets
             triplet_positions = _get_triplet_positions(target, n_triplets)
-
+            # logging.info(f'triplet_positions:{triplet_positions}')
             # get values for all triplets
             triplet_values = _get_triplet_values(output, triplet_positions)
-
+            # logging.info(f'triplet_values:{triplet_values}')
             # calculate loss for triplets
             loss = _calculate_loss(triplet_values, margin)
-
+            # logging.info(f'loss:{loss}')
             # add to running total
             total_loss += loss
 

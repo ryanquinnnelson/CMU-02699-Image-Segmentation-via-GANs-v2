@@ -204,6 +204,7 @@ class Training:
 
             # calculate generator loss
             out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
+            out_1d = torch.unsqueeze(out_1d, dim=1)
             g_loss = self.sn_criterion.calculate_loss(out_1d, targets, self.margin, self.n_triplets)
 
             # check if gan process should be run
@@ -322,6 +323,8 @@ class Validation:
         self.dataloader = dataloader
         self.criterion = _get_criterion(wandb_config.sn_criterion)
         self.use_gan = wandb_config.use_gan
+        self.n_triplets = wandb_config.n_triplets
+        self.margin = wandb_config.margin
 
         logging.info(f'Criterion for validation phase:\ngenerator:{self.criterion}')
 
@@ -372,7 +375,9 @@ class Validation:
                     logging.info(f'out.shape:{out.shape}')
 
                 # calculate generator loss
-                loss = self.criterion(out, targets)
+                out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
+                out_1d = torch.unsqueeze(out_1d, dim=1)
+                loss = self.criterion.calculate_loss(out_1d, targets, self.margin, self.n_triplets)
                 total_val_loss += loss.item()
 
                 # calculate accuracy
