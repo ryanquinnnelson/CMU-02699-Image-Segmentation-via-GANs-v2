@@ -79,7 +79,7 @@ en_out_features=1
 
 
 [hyperparameters]
-num_epochs = 2
+num_epochs = 50
 sn_criterion=TripletLoss
 en_criterion=BCELoss
 optimizer_type=adam
