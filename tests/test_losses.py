@@ -398,18 +398,6 @@ def test__calculate_loss__two_triplet_positive():
     assert actual == expected
 
 
-def test_TripletLoss__init__():
-    # defaults
-    t = l.TripletLoss()
-    assert t.margin == 0.2
-    assert t.n_triplets == 1
-
-    # custom parameters
-    t = l.TripletLoss(0.3, 2)
-    assert t.margin == 0.3
-    assert t.n_triplets == 2
-
-
 def test_TripletLoss_calculate_loss(outputs_2d, targets):
     triplet_loss = l.TripletLoss()
 

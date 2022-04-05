@@ -219,12 +219,8 @@ def _calculate_loss(triplet_values, margin=0.2):
 
 class TripletLoss:
 
-    def __init__(self, margin=0.2, n_triplets=1):
-        self.margin = margin
-        self.n_triplets = n_triplets
-
     # TODO: vectorize loss calculates on all target,output pairs at the same time
-    def calculate_loss(self, outputs, targets):
+    def calculate_loss(self, outputs, targets, margin=0.2, n_triplets=1):
         total_loss = 0.0
         n_samples = outputs.shape[0]
 
@@ -235,13 +231,13 @@ class TripletLoss:
             output = outputs[i]
 
             # choose positions for all triplets
-            triplet_positions = _get_triplet_positions(target, self.n_triplets)
+            triplet_positions = _get_triplet_positions(target, n_triplets)
 
             # get values for all triplets
             triplet_values = _get_triplet_values(output, triplet_positions)
 
             # calculate loss for triplets
-            loss = _calculate_loss(triplet_values, self.margin)
+            loss = _calculate_loss(triplet_values, margin)
 
             # add to running total
             total_loss += loss

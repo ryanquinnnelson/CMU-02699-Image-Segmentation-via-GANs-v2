@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 
+from customized.losses import TripletLoss
+
 
 class PhaseHandler:
     """
@@ -67,6 +69,8 @@ def _get_criterion(criterion_type):
         criterion = nn.CrossEntropyLoss()
     elif criterion_type == 'BCELoss':
         criterion = nn.BCELoss()
+    elif criterion_type == 'TripletLoss':
+        criterion = TripletLoss()
     return criterion
 
 
@@ -144,6 +148,9 @@ class Training:
         self.sigma_weight = wandb_config.sigma_weight
         self.gan_start_epoch = wandb_config.gan_start_epoch
 
+        self.n_triplets = wandb_config.n_triplets
+        self.margin = wandb_config.margin
+
         logging.info(f'Criterion for training phase:' +
                      f'\ngenerator:{self.sn_criterion}\ndiscriminator:{self.en_criterion}')
 
@@ -196,7 +203,8 @@ class Training:
                 logging.info(f'out.shape:{out.shape}')
 
             # calculate generator loss
-            g_loss = self.sn_criterion(out, targets)
+            out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
+            g_loss = self.sn_criterion.calculate_loss(out_1d, targets, self.margin, self.n_triplets)
 
             # check if gan process should be run
             if self.use_gan and epoch >= self.gan_start_epoch:
