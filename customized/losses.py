@@ -260,6 +260,7 @@ def _calculate_loss2(triplet_values, margin=0.2):
     # unpack
     anchor_values, negative_values, positive_values = triplet_values
     option1 = negative_values - positive_values + margin
+    option1 = option1.cpu()  # move smaller tensor now rather than entire output image
     option2 = torch.zeros(option1.shape)
 
     # for each row, if option1 is nonnegative, select that option, otherwise select 0.0
