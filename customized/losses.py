@@ -134,6 +134,7 @@ def _get_new_positive(segment_positions, anchor_position):
     return positive_position
 
 
+# TODO: find a way to get all triplet positions simultaneously
 def _get_triplet_positions(target, n_triplets):
     # for storing triplets
     anchor_positions = []
@@ -265,7 +266,7 @@ def _calculate_loss2(triplet_values, margin=0.2):
     selection = torch.where(option1 >= 0, option1, option2)
 
     # sum to get total loss
-    loss = torch.sum(selection).item()
+    loss = torch.sum(selection)
     return loss
 
 
