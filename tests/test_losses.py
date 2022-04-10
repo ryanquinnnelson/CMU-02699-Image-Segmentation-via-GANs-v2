@@ -63,26 +63,26 @@ def targets():
 
 @pytest.fixture
 def outputs_1d():
-    # shape: (3,1,5,5)
+    # shape: (3,5,5)
     # batch of 3
     # each output has a single dimension
-    o = torch.tensor([[[[0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
-                        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
-                        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
-                        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
-                        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]],
+    o = torch.tensor([[[0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+                       [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+                       [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+                       [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+                       [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]],
 
-                      [[[0.2977, 0.4399, 0.4750, 0.8097, 0.7573],
-                        [0.1771, 0.2021, 0.4243, 0.5265, 0.2079],
-                        [0.9319, 0.9046, 0.2385, 0.4292, 0.1066],
-                        [0.5421, 0.8858, 0.3479, 0.0413, 0.2431],
-                        [0.2422, 0.2530, 0.5502, 0.7505, 0.4435]]],
+                      [[0.2977, 0.4399, 0.4750, 0.8097, 0.7573],
+                       [0.1771, 0.2021, 0.4243, 0.5265, 0.2079],
+                       [0.9319, 0.9046, 0.2385, 0.4292, 0.1066],
+                       [0.5421, 0.8858, 0.3479, 0.0413, 0.2431],
+                       [0.2422, 0.2530, 0.5502, 0.7505, 0.4435]],
 
-                      [[[0.8230, 0.9267, 0.9465, 0.9285, 0.5393],
-                        [0.3142, 0.2686, 0.0248, 0.8731, 0.8203],
-                        [0.4774, 0.1330, 0.5620, 0.5715, 0.7523],
-                        [0.9411, 0.5292, 0.0644, 0.1066, 0.1095],
-                        [0.3790, 0.8215, 0.2276, 0.6534, 0.8838]]]])
+                      [[0.8230, 0.9267, 0.9465, 0.9285, 0.5393],
+                       [0.3142, 0.2686, 0.0248, 0.8731, 0.8203],
+                       [0.4774, 0.1330, 0.5620, 0.5715, 0.7523],
+                       [0.9411, 0.5292, 0.0644, 0.1066, 0.1095],
+                       [0.3790, 0.8215, 0.2276, 0.6534, 0.8838]]])
     return o
 
 
@@ -254,7 +254,6 @@ def test__get_new_positive(target1):
 
 
 def test__get_triplet_positions(target1):
-
     # 0
     n_triplets = 0
     actual = l._get_triplet_positions(target1, n_triplets)
@@ -277,10 +276,10 @@ def test__get_triplet_positions(target1):
     assert len(actual_positives) == 2
 
 
-def test__get_triplet_values__1d(outputs_1d):
-    print(outputs_1d.shape)
+def test__get_triplet_values__1d_one_index(outputs_1d):
+    # print(outputs_1d.shape)
     output = outputs_1d[0]
-    print(output.shape)
+    # print(output.shape)
 
     # each output image has two dimensions
     anchor_positions = [[4, 0]]
@@ -317,34 +316,28 @@ def test__get_triplet_values__1d(outputs_1d):
         np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
 
 
-def test__get_triplet_values__2d(outputs_2d):
-    print(outputs_2d.shape)
-    output = outputs_2d[0]
-    print(output.shape)
+def test__get_triplet_values__1d_two_indices(outputs_1d):
+    # print(outputs_1d.shape)
+    output = outputs_1d[0]
+    # print(output.shape)
 
     # each output image has two dimensions
-    anchor_positions = [[4, 0]]
-    negative_positions = [[3, 1]]
-    positive_positions = [[4, 4]]
+    anchor_positions = [[4, 0], [3, 3]]
+    negative_positions = [[3, 1], [3, 2]]
+    positive_positions = [[4, 4], [0, 0]]
     triplet_positions = anchor_positions, negative_positions, positive_positions
 
     '''
-    [[[ [0.3243, 0.8990, 0.0921, 0.2546, 0.9084],
-        [0.5298, 0.9023, 0.2922, 0.7029, 0.0408],
-        [0.3300, 0.9085, 0.5602, 0.9118, 0.9161],
-        [0.3091, 0.5567, 0.9685, 0.8120, 0.1874],
-        [0.3743, 0.9884, 0.8920, 0.4025, 0.9539]],
-
-       [[0.3390, 0.1962, 0.3514, 0.1017, 0.7659],
-        [0.8812, 0.9223, 0.7047, 0.0409, 0.2640],
-        [0.6041, 0.9155, 0.6221, 0.8875, 0.5795],
-        [0.4273, 0.3435, 0.9991, 0.3975, 0.6576],
-        [0.3570, 0.8038, 0.5411, 0.5832, 0.6003]]]
+    [[  [0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]]
     '''
 
-    expected_anchor_values = [torch.tensor([0.3743, 0.3570])]
-    expected_negative_values = [torch.tensor([0.5567, 0.3435])]
-    expected_positive_values = [torch.tensor([0.9539, 0.6003])]
+    expected_anchor_values = [torch.tensor([0.2775]), torch.tensor([0.4664])]
+    expected_negative_values = [torch.tensor([0.8106]), torch.tensor([0.0950])]
+    expected_positive_values = [torch.tensor([0.3095]), torch.tensor([0.3755])]
 
     actual_triplet_values = l._get_triplet_values(output, triplet_positions)
 
@@ -363,41 +356,179 @@ def test__get_triplet_values__2d(outputs_2d):
         np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
 
 
-def test__calculate_loss__one_triplet_positive():
-    anchor_values = [torch.tensor([0.0, 0.0])]
-    negative_values = [torch.tensor([0.0, 1.0])]
-    positive_values = [torch.tensor([2.0, 0.0])]
+def test__get_triplet_values2__1d_one_index(outputs_1d):
+    # print(outputs_1d.shape)
+    output = outputs_1d[0]
+    # print(output.shape)
+
+    # each output image has two dimensions
+    anchor_positions = [[4, 0]]
+    negative_positions = [[3, 1]]
+    positive_positions = [[4, 4]]
+    triplet_positions = anchor_positions, negative_positions, positive_positions
+
+    '''
+    [[  [0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]]
+    '''
+
+    expected_anchor_values = torch.tensor([0.2775])
+    expected_negative_values = torch.tensor([0.8106])
+    expected_positive_values = torch.tensor([0.3095])
+
+    actual_triplet_values = l._get_triplet_values2(output, triplet_positions)
+
+    # unpack
+    actual_anchor_values = actual_triplet_values[0]
+    actual_negative_values = actual_triplet_values[1]
+    actual_positive_values = actual_triplet_values[2]
+
+    for i in range(len(actual_anchor_values)):
+        np.testing.assert_equal(actual_anchor_values[i].numpy(), expected_anchor_values[i].numpy())
+
+    for i in range(len(actual_negative_values)):
+        np.testing.assert_equal(actual_negative_values[i].numpy(), expected_negative_values[i].numpy())
+
+    for i in range(len(actual_positive_values)):
+        np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
+
+
+def test__get_triplet_values2__1d_two_indices(outputs_1d):
+    # print(outputs_1d.shape)
+    output = outputs_1d[0]
+    # print(output.shape)
+
+    # each output image has two dimensions
+    anchor_positions = [[4, 0], [3, 3]]
+    negative_positions = [[3, 1], [3, 2]]
+    positive_positions = [[4, 4], [0, 0]]
+    triplet_positions = anchor_positions, negative_positions, positive_positions
+
+    '''
+    [[  [0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]]
+    '''
+
+    expected_anchor_values = torch.tensor([0.2775, 0.4664])
+    expected_negative_values = torch.tensor([0.8106, 0.0950])
+    expected_positive_values = torch.tensor([0.3095, 0.3755])
+
+    actual_triplet_values = l._get_triplet_values2(output, triplet_positions)
+
+    # unpack
+    actual_anchor_values = actual_triplet_values[0]
+    actual_negative_values = actual_triplet_values[1]
+    actual_positive_values = actual_triplet_values[2]
+
+    for i in range(len(actual_anchor_values)):
+        np.testing.assert_equal(actual_anchor_values[i].numpy(), expected_anchor_values[i].numpy())
+
+    for i in range(len(actual_negative_values)):
+        np.testing.assert_equal(actual_negative_values[i].numpy(), expected_negative_values[i].numpy())
+
+    for i in range(len(actual_positive_values)):
+        np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
+
+
+def test__get_triplet_values3__1d_one_index(outputs_1d):
+    # print(outputs_1d.shape)
+    output = outputs_1d[0]
+    # print(output.shape)
+
+    # each output image has two dimensions
+    anchor_positions = [[4, 0]]
+    negative_positions = [[3, 1]]
+    positive_positions = [[4, 4]]
+    triplet_positions = anchor_positions, negative_positions, positive_positions
+
+    '''
+    [[  [0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]]
+    '''
+
+    expected_anchor_values = torch.tensor([0.2775])
+    expected_negative_values = torch.tensor([0.8106])
+    expected_positive_values = torch.tensor([0.3095])
+
+    actual_triplet_values = l._get_triplet_values3(output, triplet_positions)
+
+    # unpack
+    actual_anchor_values = actual_triplet_values[0]
+    actual_negative_values = actual_triplet_values[1]
+    actual_positive_values = actual_triplet_values[2]
+
+    for i in range(len(actual_anchor_values)):
+        np.testing.assert_equal(actual_anchor_values[i].numpy(), expected_anchor_values[i].numpy())
+
+    for i in range(len(actual_negative_values)):
+        np.testing.assert_equal(actual_negative_values[i].numpy(), expected_negative_values[i].numpy())
+
+    for i in range(len(actual_positive_values)):
+        np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
+
+
+def test__get_triplet_values3__1d_two_indices(outputs_1d):
+    # print(outputs_1d.shape)
+    output = outputs_1d[0]
+    # print(output.shape)
+
+    # each output image has two dimensions
+    anchor_positions = [[4, 0], [3, 3]]
+    negative_positions = [[3, 1], [3, 2]]
+    positive_positions = [[4, 4], [0, 0]]
+    triplet_positions = anchor_positions, negative_positions, positive_positions
+
+    '''
+    [[  [0.3755, 0.0455, 0.0532, 0.8096, 0.0012],
+        [0.8413, 0.6249, 0.7906, 0.3437, 0.7179],
+        [0.6032, 0.0878, 0.8019, 0.3762, 0.4233],
+        [0.8584, 0.8106, 0.0950, 0.4664, 0.9527],
+        [0.2775, 0.6072, 0.2494, 0.4346, 0.3095]]]
+    '''
+
+    expected_anchor_values = torch.tensor([0.2775, 0.4664])
+    expected_negative_values = torch.tensor([0.8106, 0.0950])
+    expected_positive_values = torch.tensor([0.3095, 0.3755])
+
+    actual_triplet_values = l._get_triplet_values3(output, triplet_positions)
+
+    # unpack
+    actual_anchor_values = actual_triplet_values[0]
+    actual_negative_values = actual_triplet_values[1]
+    actual_positive_values = actual_triplet_values[2]
+
+    for i in range(len(actual_anchor_values)):
+        np.testing.assert_equal(actual_anchor_values[i].numpy(), expected_anchor_values[i].numpy())
+
+    for i in range(len(actual_negative_values)):
+        np.testing.assert_equal(actual_negative_values[i].numpy(), expected_negative_values[i].numpy())
+
+    for i in range(len(actual_positive_values)):
+        np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
+
+
+def test__calculate_loss2__two_triplet_pairs():
+    anchor_values = torch.tensor([0.0, 0.0])
+    negative_values = torch.tensor([2.0, 1.0])
+    positive_values = torch.tensor([0.0, 2.0])
     triplet_values = anchor_values, negative_values, positive_values
 
-    expected = 1.2
-    actual = l._calculate_loss(triplet_values)
-    assert actual == expected
+    expected = 2.2
+    actual = l._calculate_loss2(triplet_values)
+    assert actual == pytest.approx(expected, rel=1e-3)
 
 
-def test__calculate_loss__one_triplet_negative():
-    anchor_values = [torch.tensor([0.0, 0.0])]
-    negative_values = [torch.tensor([0.0, 2.0])]
-    positive_values = [torch.tensor([1.0, 0.0])]
-    triplet_values = anchor_values, negative_values, positive_values
-
-    expected = 0.0
-    actual = l._calculate_loss(triplet_values)
-    assert actual == expected
-
-
-def test__calculate_loss__two_triplet_positive():
-    anchor_values = [torch.tensor([0.0, 0.0]), torch.tensor([0.0, 0.0])]
-    negative_values = [torch.tensor([0.0, 1.0]), torch.tensor([0.0, 2.0])]
-    positive_values = [torch.tensor([3.0, 0.0]), torch.tensor([5.0, 0.0])]
-    triplet_values = anchor_values, negative_values, positive_values
-
-    expected = 5.4
-    actual = l._calculate_loss(triplet_values)
-    assert actual == expected
-
-
-def test_TripletLoss_calculate_loss(outputs_2d, targets):
+def test_TripletLoss_calculate_loss(outputs_1d, targets):
     triplet_loss = l.TripletLoss()
 
     # just check that the function works
-    triplet_loss.calculate_loss(outputs_2d, targets)
+    triplet_loss.calculate_loss(outputs_1d, targets)

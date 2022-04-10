@@ -205,7 +205,7 @@ class Training:
             # calculate generator loss
             # triplet loss
             out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-            out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
+            # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
             sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
 
             # cross entropy loss

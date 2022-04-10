@@ -39,7 +39,6 @@ def _position_is_in_image(p, n_rows, n_cols):
 
 
 def _is_background_pixel(p, segment_positions):
-
     # get all segment row indices where first col matches p[0]
     matches = segment_positions[:, 0] == p[0]
     idx = torch.nonzero(matches)
@@ -176,22 +175,57 @@ def _get_triplet_values(output, triplet_positions):
     positive_values = []
 
     for j, k in anchor_positions:
-        output_anchor = output[:, j, k]
+        output_anchor = output[j, k]
         anchor_values.append(output_anchor)
 
     for j, k in negative_positions:
-        output_negative = output[:, j, k]
+        output_negative = output[j, k]
         negative_values.append(output_negative)
 
     for j, k in positive_positions:
-        output_positive = output[:, j, k]
+        output_positive = output[j, k]
         positive_values.append(output_positive)
+
+    return anchor_values, negative_values, positive_values
+
+
+# TODO: vectorize so anchors, negatives, and positives are extracted at the same time
+def _get_triplet_values2(output, triplet_positions):
+    # assumes output is (H,W) tensor
+    # unpack
+    anchor_positions, negative_positions, positive_positions = triplet_positions
+
+    # extract positions simultaneously
+    anchor_values = output[np.array(anchor_positions).T]
+    negative_values = output[np.array(negative_positions).T]
+    positive_values = output[np.array(positive_positions).T]
+
+    return anchor_values, negative_values, positive_values
+
+
+def _get_triplet_values3(output, triplet_positions):
+    # assumes output is (H,W) tensor
+    # unpack
+    anchor_positions, negative_positions, positive_positions = triplet_positions
+    n_positions = len(anchor_positions)
+
+    # combine positions into single list so we can interact only once with output tensor
+    positions = anchor_positions + negative_positions + positive_positions
+
+    # extract positions simultaneously
+    values = output[np.array(positions).T]
+
+    # split into anchor, negative, positive values
+    anchor_values = values[:n_positions]
+    negative_values = values[n_positions:n_positions * 2]
+    positive_values = values[n_positions * 2:]
 
     return anchor_values, negative_values, positive_values
 
 
 # TODO: vectorize calculation to improve efficiency
 def _calculate_loss(triplet_values, margin=0.2):
+    # expects lists of (1,) shape tensors as input
     total_loss = 0.0
 
     # unpack
@@ -215,6 +249,26 @@ def _calculate_loss(triplet_values, margin=0.2):
     return total_loss
 
 
+# TODO: consider optimizing triplet_values to not include anchor since it isn't needed in calculation
+def _calculate_loss2(triplet_values, margin=0.2):
+    # expects lists of (n,1) shape tensors as input, where n is the number of triplet pairs
+
+    # calculating euclidean distance on scalar values means we don't need to square then take square root
+    # (anchor - positive) - (anchor - negative) + margin === negative - positive + margin
+
+    # unpack
+    anchor_values, negative_values, positive_values = triplet_values
+    option1 = negative_values - positive_values + margin
+    option2 = torch.zeros(option1.shape)
+
+    # for each row, if option1 is nonnegative, select that option, otherwise select 0.0
+    selection = torch.where(option1 >= 0, option1, option2)
+
+    # sum to get total loss
+    loss = torch.sum(selection).item()
+    return loss
+
+
 class TripletLoss:
 
     # TODO: vectorize loss calculates on all target,output pairs at the same time
@@ -232,10 +286,10 @@ class TripletLoss:
             triplet_positions = _get_triplet_positions(target, n_triplets)
             # logging.info(f'triplet_positions:{triplet_positions}')
             # get values for all triplets
-            triplet_values = _get_triplet_values(output, triplet_positions)
+            triplet_values = _get_triplet_values3(output, triplet_positions)
             # logging.info(f'triplet_values:{triplet_values}')
             # calculate loss for triplets
-            loss = _calculate_loss(triplet_values, margin)
+            loss = _calculate_loss2(triplet_values, margin)
             # logging.info(f'loss:{loss}')
             # add to running total
             total_loss += loss

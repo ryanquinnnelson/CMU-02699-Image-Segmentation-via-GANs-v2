@@ -22,7 +22,7 @@ output_dir = /home/ubuntu/output
 
 [checkpoint]
 checkpoint_dir = /data/checkpoints
-checkpoint_cadence = 20
+checkpoint_cadence = 5
 delete_existing_checkpoints = False
 load_from_checkpoint=False
 checkpoint_file = None
@@ -79,7 +79,7 @@ en_out_features=1
 
 
 [hyperparameters]
-num_epochs = 50
+num_epochs = 10
 sn_criterion=CrossEntropyLoss
 en_criterion=BCELoss
 optimizer_type=adam
