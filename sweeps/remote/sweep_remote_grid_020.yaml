@@ -1,4 +1,5 @@
 name: sweep_remote_grid_020
+description: Fixed bug in triplet loss calculation where I wasn't squaring the differences between anchor-positive and anchor-negative. 
 program: /home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/run_octopus.py
 method: grid
 project: CMU-02699-PROJECT

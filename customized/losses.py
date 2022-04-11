@@ -262,7 +262,7 @@ def _calculate_loss2(triplet_values, margin=0.2):
 
     # unpack
     anchor_values, negative_values, positive_values = triplet_values
-    option1 = np.abs(anchor_values - positive_values) - np.abs(anchor_values - negative_values) + margin
+    option1 = torch.abs(anchor_values - positive_values) - torch.abs(anchor_values - negative_values) + margin
     option1 = option1.cpu()  # move smaller tensor now rather than entire output image
     option2 = torch.zeros(option1.shape)
 
