@@ -255,11 +255,14 @@ def _calculate_loss2(triplet_values, margin=0.2):
     # expects lists of (n,1) shape tensors as input, where n is the number of triplet pairs
 
     # calculating euclidean distance on scalar values means we don't need to square then take square root
-    # (anchor - positive) - (anchor - negative) + margin === negative - positive + margin
+    # we can simply take the absolute value of (anchor - positive) or (anchor - negative)
+    # note that this is different from simply (anchor - positive) - (anchor - negative) because squaring each
+    # term means that each term must be positive
+    # sqrt((anchor - positive)^2) - sqrt((anchor - negative)^2) + margin
 
     # unpack
     anchor_values, negative_values, positive_values = triplet_values
-    option1 = negative_values - positive_values + margin
+    option1 = np.abs(anchor_values - positive_values) - np.abs(anchor_values - negative_values) + margin
     option1 = option1.cpu()  # move smaller tensor now rather than entire output image
     option2 = torch.zeros(option1.shape)
 

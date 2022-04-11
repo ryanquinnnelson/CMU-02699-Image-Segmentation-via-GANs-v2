@@ -516,13 +516,24 @@ def test__get_triplet_values3__1d_two_indices(outputs_1d):
         np.testing.assert_equal(actual_positive_values[i].numpy(), expected_positive_values[i].numpy())
 
 
+def test__calculate_loss__two_triplet_pairs():
+    anchor_values = [torch.tensor([0.0]),torch.tensor([0.0])]
+    negative_values = [torch.tensor([2.0]), torch.tensor([1.0])]
+    positive_values = [torch.tensor([0.0]), torch.tensor([2.0])]
+    triplet_values = anchor_values, negative_values, positive_values
+
+    expected = 1.2
+    actual = l._calculate_loss(triplet_values)
+    assert actual == pytest.approx(expected, rel=1e-3)
+
+
 def test__calculate_loss2__two_triplet_pairs():
     anchor_values = torch.tensor([0.0, 0.0])
     negative_values = torch.tensor([2.0, 1.0])
     positive_values = torch.tensor([0.0, 2.0])
     triplet_values = anchor_values, negative_values, positive_values
 
-    expected = 2.2
+    expected = 1.2
     actual = l._calculate_loss2(triplet_values)
     assert actual == pytest.approx(expected, rel=1e-3)
 
