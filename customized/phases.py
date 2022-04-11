@@ -149,9 +149,14 @@ class Training:
         self.n_triplets = wandb_config.n_triplets
         self.margin = wandb_config.margin
         self.triplet_loss_weight = wandb_config.triplet_loss_weight
+        self.use_triplet_loss = wandb_config.use_triplet_loss
 
-        logging.info(f'Criterion for training phase:' +
-                     f'\ngenerator:{self.sn_criterion}\ndiscriminator:{self.en_criterion}')
+        if self.use_triplet_loss:
+            logging.info(f'Criterion for training phase:' +
+                         f'\ngenerator:{self.sn_criterion} + triplet_loss\ndiscriminator:{self.en_criterion}')
+        else:
+            logging.info(f'Criterion for training phase:' +
+                         f'\ngenerator:{self.sn_criterion}\ndiscriminator:{self.en_criterion}')
 
     def run_epoch(self, epoch, num_epochs, models, optimizers):
         """
@@ -203,18 +208,23 @@ class Training:
                 logging.info(f'out.shape:{out.shape}')
 
             # calculate generator loss
-            # triplet loss
-            out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-            if i == 0:
-                logging.info(f'out_1d.shape:{out_1d.shape}')
-            # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
-            sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
-
             # cross entropy loss
             sn_mce_loss = self.sn_criterion(out, targets)
 
-            # combine losses
-            sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
+            # triplet loss
+            if self.use_triplet_loss:
+                out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
+                if i == 0:
+                    logging.info(f'out_1d.shape:{out_1d.shape}')
+                # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
+                sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
+
+                # combine losses
+                sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
+            else:
+                # cross entropy loss is the only SN loss
+                sn_loss = sn_mce_loss
+                sn_triplet_loss = 0  # to avoid needing to modify stats based on whether triplet_loss is used
 
             # check if gan process should be run
             if self.use_gan and epoch >= self.gan_start_epoch:
@@ -345,9 +355,6 @@ class Validation:
         self.dataloader = dataloader
         self.sn_criterion = _get_criterion(wandb_config.sn_criterion)
         self.use_gan = wandb_config.use_gan
-        self.n_triplets = wandb_config.n_triplets
-        self.margin = wandb_config.margin
-        self.triplet_loss_weight = wandb_config.triplet_loss_weight
 
         logging.info(f'Criterion for validation phase:\ngenerator:{self.sn_criterion}')
 
@@ -366,7 +373,6 @@ class Validation:
         logging.info(f'Running epoch {epoch}/{num_epochs} of evaluation...')
 
         total_val_loss = 0
-        val_triplet_loss = 0
         val_mce_loss = 0
         total_hits = 0
         total_iou_score = 0
@@ -401,21 +407,13 @@ class Validation:
                     logging.info(f'targets.shape:{targets.shape}')
                     logging.info(f'out.shape:{out.shape}')
 
-                # triplet loss
-                # out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-                # # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
-                # if i == 0:
-                #     logging.info(f'out_1d.shape:{out_1d.shape}')
-                # sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
-
                 # cross entropy loss
                 sn_mce_loss = self.sn_criterion(out, targets)
 
                 # combine losses
-                sn_loss = sn_mce_loss #+ self.triplet_loss_weight * sn_triplet_loss
+                sn_loss = sn_mce_loss
 
                 # update running totals
-                # val_triplet_loss += sn_triplet_loss.item()
                 val_mce_loss += sn_mce_loss.item()
                 total_val_loss += sn_loss.item()
 
@@ -435,7 +433,7 @@ class Validation:
                     unannotated_out = out[unannotated_idx, 0, :,
                                       :]  # 1 class to match inputs + targets shape, (B, H, W)
                     en_input = _combine_input_and_map(unannotated_inputs,
-                                                     unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
+                                                      unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
                     # forward pass
                     pred = en_model(en_input, i)
 
@@ -451,7 +449,7 @@ class Validation:
                     annotated_inputs = inputs[annotated_idx]  # (B, C, H, W)
                     annotated_targets = targets[annotated_idx]  # (B, H, W) targets only has a single class
                     en_input = _combine_input_and_map(annotated_inputs,
-                                                     annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
+                                                      annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
 
                     # forward pass
                     pred = en_model(en_input, i)
@@ -476,12 +474,10 @@ class Validation:
             discriminator_acc = n_correct_predictions / total_inputs
 
             total_val_loss /= n_mini_batches
-            val_triplet_loss /= n_mini_batches
             val_mce_loss /= n_mini_batches
 
             # build stats dictionary
             stats = {'val_loss': total_val_loss,
-                     'val_triplet_loss': val_triplet_loss,
                      'val_mce_loss': val_mce_loss,
                      'val_acc': val_acc,
                      'val_iou_score': total_iou_score,
