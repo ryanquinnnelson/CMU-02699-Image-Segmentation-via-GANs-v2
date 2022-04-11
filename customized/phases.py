@@ -402,20 +402,20 @@ class Validation:
                     logging.info(f'out.shape:{out.shape}')
 
                 # triplet loss
-                out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
-                # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
-                if i == 0:
-                    logging.info(f'out_1d.shape:{out_1d.shape}')
-                sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
+                # out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
+                # # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
+                # if i == 0:
+                #     logging.info(f'out_1d.shape:{out_1d.shape}')
+                # sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
 
                 # cross entropy loss
                 sn_mce_loss = self.sn_criterion(out, targets)
 
                 # combine losses
-                sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
+                sn_loss = sn_mce_loss #+ self.triplet_loss_weight * sn_triplet_loss
 
                 # update running totals
-                val_triplet_loss += sn_triplet_loss.item()
+                # val_triplet_loss += sn_triplet_loss.item()
                 val_mce_loss += sn_mce_loss.item()
                 total_val_loss += sn_loss.item()
 
