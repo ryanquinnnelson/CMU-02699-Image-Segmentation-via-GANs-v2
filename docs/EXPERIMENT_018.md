@@ -10,6 +10,7 @@ Trying to discern whether n_triplets impacts performance
 
 
 ## Overall Summary
+- found out there was a bug in triplet loss calculation that resulted in an incorrect loss calculation. will rerun with the fix
 
 
 
