@@ -219,6 +219,9 @@ class Training:
                 # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
                 sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
 
+                # track total
+                total_sn_train_triplet_loss += sn_triplet_loss.item()
+
                 # combine losses
                 sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
             else:
@@ -251,7 +254,6 @@ class Training:
 
             # append generator losses to running totals
             total_sn_train_loss += sn_loss.item()
-            total_sn_train_triplet_loss += sn_triplet_loss.item()
             total_sn_train_mce_loss += sn_mce_loss.item()
 
         # calculate average loss across all mini-batches

@@ -1,0 +1,20 @@
+name: sweep_remote_grid_022
+description: test variance in triplet loss
+program: /home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/run_octopus.py
+method: grid
+project: CMU-02699-PROJECT
+entity: ryanquinnnelson
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  filename:
+    values: ["/home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/configs/remote/config_remote_SN_triplet_005.txt"]
+  n_triplets:
+    values: [10]
+  margin:
+    values: [0.2,0.201,0.202,0.203,0.204,0.205,0.206,0.207,0.208,0.209]
+  triplet_loss_weight:
+    values: [0.1]
+
+
