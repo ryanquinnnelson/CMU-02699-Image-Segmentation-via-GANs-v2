@@ -125,6 +125,28 @@ def _apply_transformations(img, target):
     return img, target
 
 
+def _compose_transforms(transforms_list, resize_height):
+    """
+    Build a composition of transformations to perform on image data.
+    Args:
+        transforms_list (List): list of strings representing individual transformations,
+        in the order they should be performed
+        resize_height (int): Number of pixels tall that image should be after resizing
+    Returns: transforms.Compose object containing all desired transformations
+    """
+    t_list = []
+
+    for each in transforms_list:
+        if each == 'ToTensor':
+            t_list.append(transforms.ToTensor())
+        elif each == 'Resize':
+            t_list.append(transforms.Resize(resize_height, interpolation=Image.BILINEAR))
+
+    composition = transforms.Compose(t_list)
+
+    return composition
+
+
 class ImageDataset(Dataset):
     """
     Defines object that represents an image Dataset.
@@ -188,25 +210,3 @@ class ImageDataset(Dataset):
         tensor_target_first_channel = tensor_target_first_channel.to(torch.long)
 
         return tensor_img, tensor_target_first_channel
-
-
-def _compose_transforms(transforms_list, resize_height):
-    """
-    Build a composition of transformations to perform on image data.
-    Args:
-        transforms_list (List): list of strings representing individual transformations,
-        in the order they should be performed
-        resize_height (int): Number of pixels tall that image should be after resizing
-    Returns: transforms.Compose object containing all desired transformations
-    """
-    t_list = []
-
-    for each in transforms_list:
-        if each == 'ToTensor':
-            t_list.append(transforms.ToTensor())
-        elif each == 'Resize':
-            t_list.append(transforms.Resize(resize_height, interpolation=Image.BILINEAR))
-
-    composition = transforms.Compose(t_list)
-
-    return composition
