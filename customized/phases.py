@@ -11,6 +11,7 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 
 from customized.losses import TripletLoss
+from customized.optimizers import OptimizerHandler
 
 
 class PhaseHandler:
@@ -150,6 +151,7 @@ class Training:
         self.margin = wandb_config.margin
         self.pretrain_with_triplet_loss = wandb_config.pretrain_with_triplet_loss
         self.n_pretraining_epochs = wandb_config.n_pretraining_epochs
+        self.wandbconfig = wandb_config
 
         if self.pretrain_with_triplet_loss:
             logging.info(f'Criterion for training phase:' +
@@ -190,6 +192,12 @@ class Training:
         # Set model in 'Training mode'
         sn_model.train()
         en_model.train()
+
+        # reset optimizers after pretraining
+        if self.pretrain_with_triplet_loss and epoch == self.n_pretraining_epochs + 1:
+            optimizers, optimizer_names = OptimizerHandler().get_optimizers(models, self.wandbconfig)
+            sn_optimizer = optimizers[0]
+            en_optimizer = optimizers[1]
 
         # process mini-batches
         for i, (inputs, targets) in enumerate(self.dataloader):

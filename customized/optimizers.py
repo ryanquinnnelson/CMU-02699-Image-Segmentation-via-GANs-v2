@@ -71,3 +71,7 @@ class OptimizerHandler:
         logging.info(f'Optimizer initialized:\n{opt}')
         logging.info(f'LR={opt.state_dict()["param_groups"][0]["lr"]}')  # to ensure function works during training
         return opt
+
+    def reset_optimizer(self, model, wandb_config, model_type):
+        logging.info('Resetting optimizer...')
+        return self.get_optimizer(model, wandb_config, model_type)
