@@ -148,10 +148,10 @@ class Training:
 
         self.n_triplets = wandb_config.n_triplets
         self.margin = wandb_config.margin
-        self.triplet_loss_weight = wandb_config.triplet_loss_weight
-        self.use_triplet_loss = wandb_config.use_triplet_loss
+        self.pretrain_with_triplet_loss = wandb_config.pretrain_with_triplet_loss
+        self.n_pretraining_epochs = wandb_config.n_pretraining_epochs
 
-        if self.use_triplet_loss:
+        if self.pretrain_with_triplet_loss:
             logging.info(f'Criterion for training phase:' +
                          f'\ngenerator:{self.sn_criterion} + triplet_loss\ndiscriminator:{self.en_criterion}')
         else:
@@ -208,13 +208,10 @@ class Training:
                 logging.info(f'out.shape:{out.shape}')
 
             # calculate generator loss
-            # cross entropy loss
-            sn_mce_loss = self.sn_criterion(out, targets)
-
-            # triplet loss
-            if self.use_triplet_loss:
+            if self.pretrain_with_triplet_loss and epoch <= self.n_pretraining_epochs:
                 out_1d = out[:, 0, :, :]  # keep only class that indicates segment label
                 if i == 0:
+                    logging.info('Calculating triplet loss...')
                     logging.info(f'out_1d.shape:{out_1d.shape}')
                 # out_1d = torch.unsqueeze(out_1d, dim=1)  # triplet loss expects (B,F,H,W) dimensions
                 sn_triplet_loss = TripletLoss().calculate_loss(out_1d, targets, self.margin, self.n_triplets)
@@ -222,25 +219,32 @@ class Training:
                 # track total
                 total_sn_train_triplet_loss += sn_triplet_loss.item()
 
-                # combine losses
-                sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
+                # only triplet loss is used
+                sn_loss = sn_triplet_loss
+
             else:
+                if i == 0:
+                    logging.info('Calculating mce loss...')
+                # cross entropy loss
+                sn_mce_loss = self.sn_criterion(out, targets)
+                total_sn_train_mce_loss += sn_mce_loss.item()
+
                 # cross entropy loss is the only SN loss
                 sn_loss = sn_mce_loss
-                sn_triplet_loss = 0  # to avoid needing to modify stats based on whether triplet_loss is used
+                # sn_loss = sn_mce_loss + self.triplet_loss_weight * sn_triplet_loss
 
-            # check if gan process should be run
-            if self.use_gan and epoch >= self.gan_start_epoch:
-                # run gan process
-                losses = self.run_gan(i, epoch, inputs, out, targets, en_model, en_optimizer, sn_loss)
+                # check if gan process should be run
+                if self.use_gan and epoch >= self.gan_start_epoch:
+                    # run gan process
+                    losses = self.run_gan(i, epoch, inputs, out, targets, en_model, en_optimizer, sn_loss)
 
-                # unpack losses
-                sn_loss, en_loss_unannotated, en_loss_annotated, en_loss = losses
+                    # unpack losses
+                    sn_loss, en_loss_unannotated, en_loss_annotated, en_loss = losses
 
-                # append discriminator losses to running totals
-                total_en_train_loss_unannotated += en_loss_unannotated.item()
-                total_en_train_loss_annotated += en_loss_annotated.item()
-                total_en_train_loss += en_loss.item()
+                    # append discriminator losses to running totals
+                    total_en_train_loss_unannotated += en_loss_unannotated.item()
+                    total_en_train_loss_annotated += en_loss_annotated.item()
+                    total_en_train_loss += en_loss.item()
 
             # compute backward pass of generator
             sn_loss.backward()
@@ -254,7 +258,6 @@ class Training:
 
             # append generator losses to running totals
             total_sn_train_loss += sn_loss.item()
-            total_sn_train_mce_loss += sn_mce_loss.item()
 
         # calculate average loss across all mini-batches
         n_mini_batches = len(self.dataloader)
@@ -357,6 +360,8 @@ class Validation:
         self.dataloader = dataloader
         self.sn_criterion = _get_criterion(wandb_config.sn_criterion)
         self.use_gan = wandb_config.use_gan
+        self.pretrain_with_triplet_loss = wandb_config.pretrain_with_triplet_loss
+        self.n_pretraining_epochs = wandb_config.n_pretraining_epochs
 
         logging.info(f'Criterion for validation phase:\ngenerator:{self.sn_criterion}')
 
@@ -409,59 +414,60 @@ class Validation:
                     logging.info(f'targets.shape:{targets.shape}')
                     logging.info(f'out.shape:{out.shape}')
 
-                # cross entropy loss
-                sn_mce_loss = self.sn_criterion(out, targets)
+                if epoch > self.n_pretraining_epochs:
 
-                # combine losses
-                sn_loss = sn_mce_loss
+                    # cross entropy loss
+                    sn_mce_loss = self.sn_criterion(out, targets)
+                    val_mce_loss += sn_mce_loss.item()
 
-                # update running totals
-                val_mce_loss += sn_mce_loss.item()
-                total_val_loss += sn_loss.item()
+                    # combine losses
+                    sn_loss = sn_mce_loss
+                    total_val_loss += sn_loss.item()
+
+                    if self.use_gan:
+                        # compute forward pass on discriminator
+                        # select subset of mini-batch to be unannotated vs annotated at random
+                        unannotated_idx = np.random.choice(len(inputs), size=int(len(inputs) / 2), replace=False)
+                        annotated_idx = np.delete(np.array([k for k in range(len(inputs))]), unannotated_idx)
+
+                        # 1 - compute forward pass on discriminator using unannotated data
+                        # combine inputs and probability map
+                        unannotated_inputs = inputs[unannotated_idx]  # (B, C, H, W)
+                        unannotated_out = out[unannotated_idx, 0, :,
+                                          :]  # 1 class to match inputs + targets shape, (B, H, W)
+                        en_input = _combine_input_and_map(unannotated_inputs,
+                                                          unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
+                        # forward pass
+                        pred = en_model(en_input, i)
+
+                        # count number of predictions that accurately predict unannotated
+                        n_correct_predictions += torch.sum(
+                            pred < 0.5).item()  # en_model should predict 0 for unannotated
+
+                        if i == 0:
+                            logging.info(f'fake pred:{pred.detach()}')
+                            logging.info(f'n_correct_predictions:{n_correct_predictions}')
+
+                        # 2 - compute forward pass on discriminator using annotated data
+                        # combine inputs and probability map
+                        annotated_inputs = inputs[annotated_idx]  # (B, C, H, W)
+                        annotated_targets = targets[annotated_idx]  # (B, H, W) targets only has a single class
+                        en_input = _combine_input_and_map(annotated_inputs,
+                                                          annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
+
+                        # forward pass
+                        pred = en_model(en_input, i)
+
+                        # count number of predictions that accurately predict unannotated
+                        n_correct_predictions += torch.sum(pred >= 0.5).item()  # d_model should predict 1 for annotated
+
+                        if i == 0:
+                            logging.info(f'real pred:{pred.detach()}')
+                            logging.info(f'n_correct_predictions:{n_correct_predictions}')
 
                 # calculate accuracy
                 total_hits += _calculate_num_hits(i, targets, out)
                 total_iou_score += _calculate_iou_score(i, targets, out)
-
-                if self.use_gan:
-                    # compute forward pass on discriminator
-                    # select subset of mini-batch to be unannotated vs annotated at random
-                    unannotated_idx = np.random.choice(len(inputs), size=int(len(inputs) / 2), replace=False)
-                    annotated_idx = np.delete(np.array([k for k in range(len(inputs))]), unannotated_idx)
-
-                    # 1 - compute forward pass on discriminator using unannotated data
-                    # combine inputs and probability map
-                    unannotated_inputs = inputs[unannotated_idx]  # (B, C, H, W)
-                    unannotated_out = out[unannotated_idx, 0, :,
-                                      :]  # 1 class to match inputs + targets shape, (B, H, W)
-                    en_input = _combine_input_and_map(unannotated_inputs,
-                                                      unannotated_out.unsqueeze(1))  # unsqueeze to match inputs
-                    # forward pass
-                    pred = en_model(en_input, i)
-
-                    # count number of predictions that accurately predict unannotated
-                    n_correct_predictions += torch.sum(pred < 0.5).item()  # en_model should predict 0 for unannotated
-
-                    if i == 0:
-                        logging.info(f'fake pred:{pred.detach()}')
-                        logging.info(f'n_correct_predictions:{n_correct_predictions}')
-
-                    # 2 - compute forward pass on discriminator using annotated data
-                    # combine inputs and probability map
-                    annotated_inputs = inputs[annotated_idx]  # (B, C, H, W)
-                    annotated_targets = targets[annotated_idx]  # (B, H, W) targets only has a single class
-                    en_input = _combine_input_and_map(annotated_inputs,
-                                                      annotated_targets.unsqueeze(1))  # unsqueeze to match inputs
-
-                    # forward pass
-                    pred = en_model(en_input, i)
-
-                    # count number of predictions that accurately predict unannotated
-                    n_correct_predictions += torch.sum(pred >= 0.5).item()  # d_model should predict 1 for annotated
-
-                    if i == 0:
-                        logging.info(f'real pred:{pred.detach()}')
-                        logging.info(f'n_correct_predictions:{n_correct_predictions}')
 
                 # delete mini-batch from device
                 del inputs
