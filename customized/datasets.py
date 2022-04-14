@@ -46,8 +46,9 @@ class DatasetHandler:
         resize_height = config['data'].getint('resize_height')
 
         # initialize dataset
-        t = _compose_transforms(train_transforms, resize_height)
-        dataset = ImageDataset(train_dir, train_target_dir, 'train', t)
+        t_img = _compose_transforms(train_transforms, resize_height, True)
+        t_target = _compose_transforms(train_transforms, resize_height, False)
+        dataset = ImageDataset(train_dir, train_target_dir, 'train', t_img, t_target)
         logging.info(f'Loaded {len(dataset)} training images.')
         return dataset
 
@@ -72,12 +73,14 @@ class DatasetHandler:
 
         if self.should_normalize_val:
             logging.info('Normalizing validation data to match normalization of training data...')
-            t = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height)
+            t_img = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height, True)
+            t_target = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height, False)
         else:
-            t = _compose_transforms(['Resize', 'ToTensor'], resize_height)
+            t_img = _compose_transforms(['Resize', 'ToTensor'], resize_height, True)
+            t_target = _compose_transforms(['Resize', 'ToTensor'], resize_height, False)
 
         # initialize dataset
-        dataset = ImageDataset(val_dir, val_target_dir, 'val', t)
+        dataset = ImageDataset(val_dir, val_target_dir, 'val', t_img, t_target)
         logging.info(f'Loaded {len(dataset)} validation images.')
         return dataset
 
@@ -101,12 +104,14 @@ class DatasetHandler:
         self.should_normalize_test = True if 'Normalize' in train_transforms else False
         if self.should_normalize_test:
             logging.info('Normalizing validation data to match normalization of training data...')
-            t = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height)
+            t_img = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height, True)
+            t_target = _compose_transforms(['Resize', 'ToTensor', 'Normalize'], resize_height, False)
         else:
-            t = _compose_transforms(['Resize', 'ToTensor'], resize_height)
+            t_img = _compose_transforms(['Resize', 'ToTensor'], resize_height, True)
+            t_target = _compose_transforms(['Resize', 'ToTensor'], resize_height, False)
 
         # initialize dataset
-        dataset = ImageDataset(test_dir, test_target_dir, 'test', t)
+        dataset = ImageDataset(test_dir, test_target_dir, 'test', t_img, t_target)
         logging.info(f'Loaded {len(dataset)} test images.')
         return dataset
 
@@ -125,7 +130,7 @@ def _apply_transformations(img, target):
     return img, target
 
 
-def _compose_transforms(transforms_list, resize_height):
+def _compose_transforms(transforms_list, resize_height, transforms_for_image=True):
     """
     Build a composition of transformations to perform on image data.
     Args:
@@ -141,10 +146,10 @@ def _compose_transforms(transforms_list, resize_height):
             t_list.append(transforms.ToTensor())
         elif each == 'Resize':
             t_list.append(transforms.Resize(resize_height, interpolation=Image.BILINEAR))
-        elif each == 'NormalizeUsingImageNet':
+        elif each == 'NormalizeUsingImageNet' and transforms_for_image:  # don't use on target
             t_list.append(transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                std=[0.229, 0.224, 0.225]))
-        elif each == 'NormalizeUsingDataset':
+        elif each == 'Normalize' and transforms_for_image:  # don't use on target
             t_list.append(transforms.Normalize(mean=[0.7853, 0.5147, 0.7834],
                                                std=[0.1566, 0.2124, 0.1169]))
 
@@ -158,18 +163,19 @@ class ImageDataset(Dataset):
     Defines object that represents an image Dataset.
     """
 
-    def __init__(self, img_dir, targets_dir, dataset_type, transform=None):
+    def __init__(self, img_dir, targets_dir, dataset_type, img_transform=None, target_transform=None):
         """
         Initialize ImageDataset.
 
         Args:
             img_dir (str): Directory for images
             targets_dir (str): Directory for targets related to given images
-            transform (transformation to perform on both images and targets):
+            img_transform (transformation to perform on both images and targets):
         """
         self.img_dir = img_dir
         self.targets_dir = targets_dir
-        self.transform = transform
+        self.img_transform = img_transform
+        self.target_transform = target_transform
         self.dataset_type = dataset_type
 
         # prepare image list
@@ -201,8 +207,8 @@ class ImageDataset(Dataset):
             img, target = _apply_transformations(img, target)
 
         # resize and convert to tensors
-        tensor_img = self.transform(img)
-        tensor_target = self.transform(target)  # (C, H, W)
+        tensor_img = self.img_transform(img)
+        tensor_target = self.target_transform(target)  # (C, H, W)
 
         # keep only first channel because all three channels are given the same value
         tensor_target_first_channel = tensor_target[0]  # (H,W)

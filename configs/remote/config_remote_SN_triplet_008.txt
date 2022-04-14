@@ -1,5 +1,5 @@
 [DEFAULT]
-run_name = SN_triplet_007
+run_name = SN_triplet_008
 
 
 [debug]
@@ -92,7 +92,7 @@ scheduler_mode=min
 scheduler_verbose=True
 scheduler_plateau_metric=val_loss
 scheduler_min_lr=0.00001
-use_gan = False
+use_gan = True
 en_loss_weight=0.1
 en_loss_increment=300
 gan_start_epoch=1
