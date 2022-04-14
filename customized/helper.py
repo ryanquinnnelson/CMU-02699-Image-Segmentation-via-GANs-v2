@@ -44,7 +44,7 @@ def to_int_dict(s):
         # try converting the value to an int
         try:
             val = int(val)
-            continue # skip additional attempts to parse the type
+            continue  # skip additional attempts to parse the type
         except ValueError:
             pass  # leave as string
 
@@ -71,7 +71,7 @@ def to_float_dict(s):
         # try converting the value to a float
         try:
             val = float(val)
-            continue # skip additional attempts to parse the type
+            continue  # skip additional attempts to parse the type
         except ValueError:
             pass  # leave as string
 

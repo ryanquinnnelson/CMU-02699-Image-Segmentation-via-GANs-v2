@@ -141,6 +141,12 @@ def _compose_transforms(transforms_list, resize_height):
             t_list.append(transforms.ToTensor())
         elif each == 'Resize':
             t_list.append(transforms.Resize(resize_height, interpolation=Image.BILINEAR))
+        elif each == 'NormalizeUsingImageNet':
+            t_list.append(transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                               std=[0.229, 0.224, 0.225]))
+        elif each == 'NormalizeUsingDataset':
+            t_list.append(transforms.Normalize(mean=[0.7853, 0.5147, 0.7834],
+                                               std=[0.1566, 0.2124, 0.1169]))
 
     composition = transforms.Compose(t_list)
 
