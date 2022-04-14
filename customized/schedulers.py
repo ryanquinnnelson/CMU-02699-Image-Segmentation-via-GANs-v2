@@ -66,3 +66,7 @@ class SchedulerHandler:
 
         logging.info(f'Scheduler initialized:\n{scheduler}\n{scheduler.state_dict()}')
         return scheduler
+
+    def reset_schedulers(self, optimizers, wandb_config):
+        logging.info(f'Resetting schedulers...')
+        return self.get_schedulers(optimizers, wandb_config)

@@ -193,12 +193,6 @@ class Training:
         sn_model.train()
         en_model.train()
 
-        # reset optimizers after pretraining
-        if self.pretrain_with_triplet_loss and epoch == self.n_pretraining_epochs + 1:
-            optimizers, optimizer_names = OptimizerHandler().get_optimizers(models, self.wandbconfig)
-            sn_optimizer = optimizers[0]
-            en_optimizer = optimizers[1]
-
         # process mini-batches
         for i, (inputs, targets) in enumerate(self.dataloader):
 

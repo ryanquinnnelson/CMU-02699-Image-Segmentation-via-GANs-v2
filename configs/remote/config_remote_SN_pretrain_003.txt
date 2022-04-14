@@ -100,3 +100,4 @@ margin=0.2
 n_triplets=50
 pretrain_with_triplet_loss=True
 n_pretraining_epochs=50
+reset_after_pretraining=True
