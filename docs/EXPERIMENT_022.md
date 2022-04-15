@@ -10,7 +10,7 @@ Determine whether using triplet loss as pretraining instead of during training r
 - Run name: SN_pretrain_003
 	- n_triplets: 50
 	- n_pretraining_epochs: 50
-	- note: reset g_lr and d_lr after pretraining
+	- note: reset schedulers and optimizers after pretraining
 
 ## Overall Summary
 - not resetting lr after pretraining results in no real improvement after pretraining
