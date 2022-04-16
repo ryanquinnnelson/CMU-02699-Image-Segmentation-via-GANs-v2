@@ -12,8 +12,14 @@ Determine whether using triplet loss as pretraining instead of during training r
 	- n_pretraining_epochs: 50
 	- note: reset schedulers and optimizers after pretraining
 
+- Run name: SN_pretrain_004
+	- n_triplets: 50
+	- n_pretraining_epochs: 100
+	- note: reset schedulers and optimizers after pretraining
+
 ## Overall Summary
 - not resetting lr after pretraining results in no real improvement after pretraining
+- resetting SN_pretrain_003 does result in slightly better performing model than using the GAN alone
 
 
 

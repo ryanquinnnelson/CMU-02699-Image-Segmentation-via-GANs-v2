@@ -416,7 +416,9 @@ class Validation:
                     logging.info(f'targets.shape:{targets.shape}')
                     logging.info(f'out.shape:{out.shape}')
 
-                if self.pretrain_with_triplet_loss and epoch > self.n_pretraining_epochs:
+                # run validation loss calculations whenever pretraining is not happening
+                if (not self.pretrain_with_triplet_loss) or (
+                        self.pretrain_with_triplet_loss and epoch > self.n_pretraining_epochs):
 
                     # cross entropy loss
                     sn_mce_loss = self.sn_criterion(out, targets)
