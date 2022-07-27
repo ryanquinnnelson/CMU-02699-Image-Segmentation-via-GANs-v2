@@ -1,0 +1,85 @@
+[DEFAULT]
+run_name = Run-test
+
+
+[debug]
+debug_path = /Users/ryanqnelson/Desktop/test/
+
+
+[wandb]
+wandb_dir = /Users/ryanqnelson/Desktop/test
+entity = ryanquinnnelson
+project = CMU-02699-PROJECT
+notes = Image Segmentation using GANs
+tags = octopus,GAN,DAN
+mode = online
+config_sections_to_track=dataloader,model,hyperparameters
+
+
+[output]
+output_dir = /Users/ryanqnelson/Desktop/test/output
+
+
+[checkpoint]
+checkpoint_dir = /Users/ryanqnelson/Desktop/test/checkpoints
+checkpoint_cadence = 5
+delete_existing_checkpoints = True
+load_from_checkpoint=False
+checkpoint_file =  None
+
+
+[data]
+data_dir = /Users/ryanqnelson/Desktop/test/data/warwick
+train_dir = /Users/ryanqnelson/Desktop/test/data/warwick/training
+train_target_dir = /Users/ryanqnelson/Desktop/test/data/warwick/training_anno
+val_dir = /Users/ryanqnelson/Desktop/test/data/warwick/a
+val_target_dir = /Users/ryanqnelson/Desktop/test/data/warwick/a_anno
+test_dir = /Users/ryanqnelson/Desktop/test/data/warwick/b
+test_target_dir = /Users/ryanqnelson/Desktop/test/data/warwick/b_anno
+transforms_list = Resize,ToTensor
+resize_height = 224
+
+
+##########################################################################################
+#                             Sweep parameters below this line                           #
+##########################################################################################
+
+
+[dataloader]
+num_workers=8
+pin_memory=True
+batch_size=10
+
+
+# TODO: avoid specifying original_width and original_height; calculate from resize_height
+[model]	
+sn_model_type=ConcatenationFCN
+en_model_type=ENLite
+num_fcn_blocks=3
+block_depth=1
+input_channels=3
+output_channels=2
+first_layer_out_channels=64
+block_pattern=single_run
+upsampling_pattern=last_three
+original_height=224
+original_width=332
+
+
+[hyperparameters]
+num_epochs = 3
+sn_criterion=CrossEntropyLoss
+en_criterion=BCELoss
+optimizer_type=adam
+lr=0.002
+scheduler_type=ReduceLROnPlateau
+scheduler_factor=0.5
+scheduler_patience=5
+scheduler_mode=min
+scheduler_verbose=True
+scheduler_plateau_metric=val_loss
+scheduler_min_lr=0.00001
+use_gan = False
+sigma=0.1
+sigma_weight=300
+gan_start_epoch=2

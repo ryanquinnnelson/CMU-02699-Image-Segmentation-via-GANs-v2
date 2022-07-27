@@ -1,0 +1,18 @@
+name: sweep_remote_grid_023
+description: compare model performance with and without triplet loss, EN
+program: /home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/run_octopus.py
+method: grid
+project: CMU-02699-PROJECT
+entity: ryanquinnnelson
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  filename:
+    values: ["/home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/configs/remote/config_remote_SN_triplet_006.txt"]
+  use_gan:
+    values: [True, False]
+  use_triplet_loss:
+    values: [False,True]
+
+

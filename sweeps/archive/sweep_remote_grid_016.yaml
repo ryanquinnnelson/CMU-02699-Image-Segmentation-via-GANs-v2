@@ -1,0 +1,19 @@
+name: sweep_remote_grid_016
+program: /home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/run_octopus.py
+method: grid
+project: CMU-02699-PROJECT
+entity: ryanquinnnelson
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  filename:
+    values: ["/home/ubuntu/CMU-02699-Image-Segmentation-via-GANs2/configs/remote/config_remote_SN_triplet_002.txt"]
+  n_triplets:
+    values: [20]
+  margin:
+    values: [0.1,0.2,0.4,0.8]
+  triplet_loss_weight:
+    values: [0.1]
+
+
